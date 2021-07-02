@@ -1,3 +1,4 @@
+//Back-end electron app
 const {app, BrowserWindow, contextBridge} = require('electron')
 
 const { dialog } = require('electron')
@@ -40,8 +41,10 @@ app.whenReady().then(() => {
   })
 
 
-
+//Open file dialog --> Wait for user to pick a folder --> Process the folder, load Mendix project --> generate mendixProp object for client
 async function getSelectedDirectory() {
+    //Init return object
+    let clientResponse = {}
     //Open file dialog and wait for action
     var selectedDirectoryAction = await dialog.showOpenDialog({ properties: ['openDirectory'] })
 
@@ -49,16 +52,27 @@ async function getSelectedDirectory() {
     if (selectedDirectoryAction.canceled != true)
     {
         //User has selected a new working directory.
+        selectedPathDir = selectedDirectoryAction.filePaths[0]
+        
         //Start checking for Mendix files
-        selectedPathDir = selectedDirectoryAction.filePaths[0];
-        processSelectedDirectory(selectedPathDir);
+        var folderValidation = await validateMendixFolder(selectedPathDir)
 
-        var returndata = {};
-        returndata.type = 'selectedDirectory';
+        //Folder has a Mendix project
+        if (folderValidation) {
+            clientResponse.type = 'selectedDirectory'
+    
+            clientResponse.content = selectedPathDir
+            //Return action to client
+            win.webContents.send('fromMain', clientResponse)
+        }
 
-        returndata.content = selectedPathDir;
-        //Return action to client
-        win.webContents.send('fromMain', returndata);
+        //Folder does not have a valid Mendix project
+        else {
+            //Return to client that we could not load the folder
+            clientResponse.type = 'showErrorMessage'
+            clientResponse.content = 'This folder does not contain all neccesary Mendix files'
+            win.webContents.send('fromMain', clientResponse)
+        }
     }
 }
 
@@ -69,23 +83,3 @@ ipcMain.on("toMain", (event, args) => {
         getSelectedDirectory();
     }
 })
-
-
-async function processSelectedDirectory(dir) {
-    //Send new directory mendix API
-    let response = {}
-
-    //First check if this is a valid mendix folder
-    var folderValidation = await validateMendixFolder(dir)
-    console.log('Folder validation finished with result ' + folderValidation)
-
-    if (folderValidation) {
-        //Folder has all neccesary mendix files        
-    }
-    else {
-        //Return to client that we could not load the folder
-        response.type = 'showErrorMessage'
-        response.content = 'This folder does not contain all neccesary Mendix files'
-        win.webContents.send('fromMain', response)
-    }
-}
