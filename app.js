@@ -43,8 +43,6 @@ app.whenReady().then(() => {
 
 //Open file dialog --> Wait for user to pick a folder --> Process the folder, load Mendix project --> generate mendixProp object for client
 async function getSelectedDirectory() {
-    //Init return object
-    let clientResponse = {}
     //Open file dialog and wait for action
     var selectedDirectoryAction = await dialog.showOpenDialog({ properties: ['openDirectory'] })
 
@@ -59,6 +57,7 @@ async function getSelectedDirectory() {
 
         //Folder has a Mendix project
         if (folderValidation) {
+            let clientResponse = {}
             clientResponse.type = 'selectedDirectory'
     
             clientResponse.content = selectedPathDir
@@ -69,12 +68,20 @@ async function getSelectedDirectory() {
         //Folder does not have a valid Mendix project
         else {
             //Return to client that we could not load the folder
-            clientResponse.type = 'showErrorMessage'
-            clientResponse.content = 'This folder does not contain all neccesary Mendix files'
-            win.webContents.send('fromMain', clientResponse)
+            _clientReturnErrorMessage('This folder does not contain all neccesary Mendix files')
         }
     }
 }
+
+//Cient responses
+
+function _clientReturnErrorMessage(msg) {
+    let clientResponse = {}
+    clientResponse.type = 'showErrorMessage'
+    clientResponse.content = msg
+    win.webContents.send('fromMain', clientResponse)
+}
+
 
 
 //IPC binds for preload.js

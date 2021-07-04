@@ -27,13 +27,14 @@ exports.validateMendixFolder = async (dir) => {
 }
 
 
-
+//Refactor this: Load metadata.json once, then use that to analyse different aspects
 exports.readMendixVersion = async (dir) => {
     console.log(`Checking Mendix version for ${dir}`)
     let mendixMetadataPath = dir + '\\deployment\\model\\metadata.json'
     var jsonData = await _readJsonFile(mendixMetadataPath)
     return jsonData.RuntimeVersion
 }
+
 
 
 async function _readJsonFile(path) {
