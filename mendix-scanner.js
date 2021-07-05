@@ -6,9 +6,53 @@ const checkFilePaths = [
     "\\deployment\\model\\metadata.json"
 ];
 
+//Mendix scanner object
+class MendixScanner {
+    constructor(baseDir) {
+        this.baseDir = baseDir
+        this.metadataPath = baseDir + `\\deployment\\model\\metadata.json`
+        this.hasMendixFolder
+        this.mendixMetadataJson
+
+        //Refactor Mendix props into a seperate Mendix object?
+        this.mendixVersion
+    }
+
+    init = async (cb) => {
+        //Init object. Runs callback after init.
+        await this.checkValidMendixDirectory()
+
+        //If Mendix folder is found, load metadata etc
+        if (this.hasMendixFolder) {
+            //Load JSON object into MendixScanner
+            await this.loadMendixMetadataJson()
+            this.mendixVersion = this.mendixMetadataJson.RuntimeVersion
+           
+        }
+        else {
+            //Throw object error
+            throw `No valid Mendix directory found at ${this.baseDir}`
+        }
+
+        //Bind callback to this object
+        cb.bind(this)();
+    }
+
+    checkValidMendixDirectory = async () => {
+        let validFolder = await _validateMendixFolder(this.baseDir)
+        this.hasMendixFolder = validFolder
+    }
+
+    loadMendixMetadataJson = async () => {
+        let metadataJson = await _loadMendixMetaDataJson(this.metadataPath)
+        this.mendixMetadataJson = metadataJson
+    }
+}
+
+
 
 //Checks if a directory contains a valid Mendix build (including deployment\model)
-exports.validateMendixFolder = async (dir) => {
+_validateMendixFolder = async (dir) => {
     console.log(`Validating directory ${dir}`)
 
     //Basic vars
@@ -17,22 +61,19 @@ exports.validateMendixFolder = async (dir) => {
     var invalidDir = await _validateDirectoryFiles(baseDir)
 
     if (invalidDir == false) {
-        console.log('All file checks succesful')
+        //console.log('All file checks succesful')
         return true
     }
     else {
-        console.log('Could not find all neccesary files')
+        //console.log('Could not find all neccesary files')
         return false
     }
 }
 
 
-//Refactor this: Load metadata.json once, then use that to analyse different aspects
-exports.readMendixVersion = async (dir) => {
-    console.log(`Checking Mendix version for ${dir}`)
-    let mendixMetadataPath = dir + '\\deployment\\model\\metadata.json'
-    var jsonData = await _readJsonFile(mendixMetadataPath)
-    return jsonData.RuntimeVersion
+_loadMendixMetaDataJson = async (metadataPath) => {
+    var jsonData = await _readJsonFile(metadataPath)
+    return jsonData
 }
 
 
@@ -78,3 +119,6 @@ async function _checkFileExist(path) {
         return false
     }
 }
+
+
+exports.MendixScanner = MendixScanner

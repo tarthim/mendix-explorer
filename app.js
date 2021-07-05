@@ -8,7 +8,7 @@ const path = require('path')
 //IPC communication
 const { ipcMain } = require('electron')
 
-const {validateMendixFolder} = require('./mendix-scanner.js')
+const {MendixScanner} = require('./mendix-scanner.js')
 
 let win;
 
@@ -52,23 +52,23 @@ async function getSelectedDirectory() {
         //User has selected a new working directory.
         selectedPathDir = selectedDirectoryAction.filePaths[0]
         
-        //Start checking for Mendix files
-        var folderValidation = await validateMendixFolder(selectedPathDir)
+        //Create a Mendix Scanner object
+        var mendixScanner = new MendixScanner(selectedPathDir)
+        try {
+            await mendixScanner.init(() => {
+                console.log('Mendix scanner object succesfully initialized')
+                console.log(`Mendix version ${mendixScanner.mendixVersion} detected`)
 
-        //Folder has a Mendix project
-        if (folderValidation) {
-            let clientResponse = {}
-            clientResponse.type = 'selectedDirectory'
-    
-            clientResponse.content = selectedPathDir
-            //Return action to client
-            win.webContents.send('fromMain', clientResponse)
+                //Communicate succesful init to client
+                let clientResponse = {}
+                clientResponse.type = 'selectedDirectory'
+                clientResponse.content = mendixScanner.baseDir
+                //Return to client
+                win.webContents.send('fromMain', clientResponse)
+            })
         }
-
-        //Folder does not have a valid Mendix project
-        else {
-            //Return to client that we could not load the folder
-            _clientReturnErrorMessage('This folder does not contain all neccesary Mendix files')
+        catch (e) {
+            _clientReturnErrorMessage(e)
         }
     }
 }
