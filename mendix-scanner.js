@@ -1,10 +1,19 @@
 //A module to scan Mendix folders for structure and extra information
-
 const fs = require('fs')
 
 const checkFilePaths = [
     "\\deployment\\model\\metadata.json"
 ];
+
+
+class MendixRole {
+    constructor (id, name) {
+        this.id = id
+        this.name = name
+        this.manageRoles = []
+    }
+}
+
 
 //Mendix scanner object
 class MendixScanner {
@@ -16,6 +25,7 @@ class MendixScanner {
 
         //Refactor Mendix props into a seperate Mendix object?
         this.mendixVersion
+        this.mendixRoles = []
     }
 
     init = async (cb) => {
@@ -26,7 +36,26 @@ class MendixScanner {
         if (this.hasMendixFolder) {
             //Load JSON object into MendixScanner
             await this.loadMendixMetadataJson()
+
+            //Read runtime version
             this.mendixVersion = this.mendixMetadataJson.RuntimeVersion
+
+            //Read roles from metadata
+            let allRoles = this.mendixMetadataJson.Roles
+
+            //Create initial mapping
+            for (let role in allRoles) {
+                //Create role object
+                let selectedRole = allRoles[role]
+                let roleName = selectedRole.Name
+
+                let newRole = new MendixRole(role, roleName)
+                newRole.manageRoles.push(selectedRole.ManageableRoles)
+                this.mendixRoles.push(newRole)
+                console.log(newRole)
+            }
+
+            //Todo: Go through mendixRoles object (this.mendixRoles) and assign names to manageRoles (find them in mendixRoles :-))
            
         }
         else {
