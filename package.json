@@ -11,5 +11,8 @@
   "license": "ISC",
   "devDependencies": {
     "electron": "^13.1.4"
+  },
+  "dependencies": {
+    "xml-reader": "^2.4.3"
   }
 }

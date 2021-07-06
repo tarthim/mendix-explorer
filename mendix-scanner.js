@@ -5,6 +5,9 @@ const checkFilePaths = [
     "\\deployment\\model\\metadata.json"
 ];
 
+const XmlReader = require('xml-reader')
+
+
 
 class MendixRole {
     constructor (id, name) {
@@ -26,8 +29,11 @@ class MendixScanner {
         //Refactor Mendix props into a seperate Mendix object?
         this.mendixVersion
         this.projectName
-        this.mendixRoles = []
         this.mxAdminName
+        this.mendixRoles = []
+        this.pagesFound = false
+        this.pagesDirectories = []
+        this.pages = []
     }
 
     init = async (cb) => {
@@ -51,7 +57,7 @@ class MendixScanner {
             //Read roles from metadata
             let allRoles = this.mendixMetadataJson.Roles
 
-            //Create initial mapping
+            //Create initial mapping (Refactor to _function)
             for (let role in allRoles) {
                 //Create role object
                 let selectedRole = allRoles[role]
@@ -62,7 +68,7 @@ class MendixScanner {
                 this.mendixRoles.push(newRole)
             }
 
-            //Loop through Mendix roles to add readable names to manageable role ids
+            //Loop through Mendix roles to add readable names to manageable role ids (Refactor to _function)
             this.mendixRoles.forEach((mendixRole) => {
                 let manageRoles = mendixRole.manageRoles[0]
                 if (manageRoles) { //Has manageable roles
@@ -83,7 +89,10 @@ class MendixScanner {
                 }
             })
 
-
+            //Grab all XML directories for pages
+            await _getMendixXMLDirectories(this)
+            //Read XML files inside pages
+            if (this.pagesFound) await _readXMLPages(this)
         }
         else {
             //Throw object error
@@ -132,7 +141,126 @@ _loadMendixMetadataJson = async (metadataPath) => {
     return jsonData
 }
 
+async function _getMendixXMLDirectories(obj) {
+    //Find XML directories. Each language has its own folder. First coding pass only has support for nl_NL
+    let xmlDir = obj.baseDir + '\\deployment\\web\\pages\\nl_NL\\'
+    console.log(`Checking ${xmlDir}`)
+    var folderFound = await _checkFileExist(xmlDir)
+    if (folderFound) {
+        //Set pages found to true for easier handling at client side
+        if (obj.pagesFound == false) obj.pagesFound = true
+        //Check all folders in pages directory
+        let subDirectories = 
+            //Read all subdirectories in xmlDir
+            fs.readdirSync(xmlDir, {withFileTypes: true})
+                .filter(dirent => dirent.isDirectory())
+                .map(dirent => dirent.name)
+        //Add directory to XML list in mendixScanner obj
+        for (let i in subDirectories) {
+            let subDir = subDirectories[i]
+            let xmlPageDir = xmlDir + subDir + `\\`
+            obj.pagesDirectories.push(xmlPageDir)
+        }
+    }
+}
 
+
+async function _readXMLPages(obj) {
+    let pagesDirectories = obj.pagesDirectories
+    let xmlDirs = []
+    let allMendixObjects = []
+    pagesDirectories.forEach((pagesDirectory) => {
+        //Loop through each directory
+        let directoryName = pagesDirectory
+        console.log(pagesDirectory)
+        //Create list of each xml file inside directory
+        let xmlFiles = 
+            fs.readdirSync(pagesDirectory, {withFileTypes: true})
+                .filter(dirent => dirent.isDirectory() === false)
+                .map(dirent => dirent.name)
+        
+        xmlDirs.push({'dir': directoryName, 'xml': xmlFiles})    
+    
+    })
+    
+    //Loop through all XML files :-)
+
+
+    await Promise.all(xmlDirs.map(async (xmlDirObj) => {
+        let xmlDir = xmlDirObj.dir
+        let xmlFiles = xmlDirObj.xml
+        
+        let xmlFileCount = xmlFiles.length
+        if (xmlFileCount > 0) {
+            //Start scanning each XML file. 
+            let baseDir = xmlDir
+
+            await Promise.all(xmlFiles.map(async (xmlFile) => {
+                let fullPath = baseDir + xmlFile
+                let pageName = xmlFile.split('.')[0]
+                
+                await _readXMLFile(fullPath, pageName, allMendixObjects)
+            }))
+        }
+    }))
+
+    
+    console.log('Done reading!')
+    
+
+//Process allMendixObjects
+    allMendixObjects.forEach((mendixObject) => {
+        //console.log(mendixObject)
+        let mendixObjectType = mendixObject.obj.attributes['data-mendix-type']
+        if (mendixObjectType) {
+            let mendixType = mendixObjectType.substring(0,4)
+            if (mendixType == 'mxui') {
+                if (mendixObjectType !== 'mxui.widget.ReactWidgetWrapper') console.log('Mendix object: ' + mendixObjectType)
+            }
+            else {
+                console.log(`Custom widget on page ${mendixObject.page} with type ${mendixObjectType}`)
+            }
+        }
+    })
+
+}
+
+
+
+async function _processXMLPage(page, pageName, allMendixObjects) {
+    return new Promise((resolve, reject) => {
+        //console.log(`Reading page ${pageName}`)
+        var xmlReader = XmlReader.create() //Create new reader for object
+        
+        //Reads raw XML content.
+        xmlReader.on('done', data =>
+        {
+            let baseObject = data
+            allMendixObjects.push({'page': pageName, 'obj': baseObject})
+            let currentObj = baseObject.children
+    
+
+            currentObj.forEach((baseObj) => {
+                recursiveReadChildren(allMendixObjects, baseObj, pageName)
+            })     
+        })
+        xmlReader.parse(page)
+        resolve()
+    })
+}
+
+
+function recursiveReadChildren(objArray, obj, pageName) {
+    if (obj.children != undefined) {
+        if (obj.children.length > 0) {
+            obj.children.forEach((childObj) => {
+                recursiveReadChildren(objArray, childObj, pageName)
+            })
+        }
+    }
+
+    objArray.push({'page': pageName, 'obj': obj})
+}
 
 async function _readJsonFile(path) {
     return new Promise((resolve, reject) => {
@@ -144,6 +272,15 @@ async function _readJsonFile(path) {
     })
 }
 
+async function _readXMLFile(path, pageName, allMendixObjects) {
+    return new Promise((resolve) => {
+        fs.readFile(path, 'utf8', async (err, data) => {
+            if (err) reject (err)
+            await _processXMLPage(data, pageName, allMendixObjects)
+            resolve(data)
+        })
+    })
+}
 
 
 async function _validateDirectoryFiles(basePath) {
@@ -161,7 +298,7 @@ async function _validateDirectoryFiles(basePath) {
 }
 
 
-
+//Refactor. This doesn't only check files, but can also be used to check folder paths
 async function _checkFileExist(path) {
     //Checks async if file exists at path
     //console.log('Checking file at ' + path)

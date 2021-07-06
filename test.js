@@ -8,10 +8,11 @@ async function runTest() {
     try {
         await mendixScanner.init(() => {
             console.log('Mendix scanner object succesfully initialized')
-            console.log(`Mendix version ${mendixScanner.mendixVersion} detected for project ${mendixScanner.projectName}`)
-            console.log(`Global admin user is called ${mendixScanner.mxAdminName}`)
+            //console.log(`Mendix version ${mendixScanner.mendixVersion} detected for project ${mendixScanner.projectName}`)
+            //console.log(`Global admin user is called ${mendixScanner.mxAdminName}`)
             //console.log('Roles: ')
             //console.log(mendixScanner.mendixRoles)
+            //console.log(mendixScanner)
         })
     }
     catch (e) {
