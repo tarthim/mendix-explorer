@@ -25,7 +25,9 @@ class MendixScanner {
 
         //Refactor Mendix props into a seperate Mendix object?
         this.mendixVersion
+        this.projectName
         this.mendixRoles = []
+        this.mxAdminName
     }
 
     init = async (cb) => {
@@ -37,8 +39,14 @@ class MendixScanner {
             //Load JSON object into MendixScanner
             await this.loadMendixMetadataJson()
 
+            //Read project name
+            this.projectName = this.mendixMetadataJson.ProjectName
+
             //Read runtime version
             this.mendixVersion = this.mendixMetadataJson.RuntimeVersion
+
+            //Read MXadmin name
+            this.mxAdminName = this.mendixMetadataJson.AdminUser
 
             //Read roles from metadata
             let allRoles = this.mendixMetadataJson.Roles
@@ -52,11 +60,30 @@ class MendixScanner {
                 let newRole = new MendixRole(role, roleName)
                 newRole.manageRoles.push(selectedRole.ManageableRoles)
                 this.mendixRoles.push(newRole)
-                console.log(newRole)
             }
 
-            //Todo: Go through mendixRoles object (this.mendixRoles) and assign names to manageRoles (find them in mendixRoles :-))
-           
+            //Loop through Mendix roles to add readable names to manageable role ids
+            this.mendixRoles.forEach((mendixRole) => {
+                let manageRoles = mendixRole.manageRoles[0]
+                if (manageRoles) { //Has manageable roles
+                    manageRoles.forEach((findRoleValue, i) => { //Go through each role, find readable name
+                        var originRoleID = manageRoles[i]
+                        //Find this value in the mendix role list for this application. Return as foundRole.
+                        let foundRole = this.mendixRoles.find((role) => {
+                            return role.id === findRoleValue
+                        })
+                        //Value to add to array with roles (readable for end-user)
+                        let foundRoleName = foundRole.name
+                        //Replace just the ID value with ID and name
+                        manageRoles[i] = {'ID': originRoleID, 'name': foundRoleName}
+                    })
+                }
+                else {
+                    //Has no roles to manage :-)
+                }
+            })
+
+
         }
         else {
             //Throw object error
@@ -73,7 +100,7 @@ class MendixScanner {
     }
 
     loadMendixMetadataJson = async () => {
-        let metadataJson = await _loadMendixMetaDataJson(this.metadataPath)
+        let metadataJson = await _loadMendixMetadataJson(this.metadataPath)
         this.mendixMetadataJson = metadataJson
     }
 }
@@ -100,7 +127,7 @@ _validateMendixFolder = async (dir) => {
 }
 
 
-_loadMendixMetaDataJson = async (metadataPath) => {
+_loadMendixMetadataJson = async (metadataPath) => {
     var jsonData = await _readJsonFile(metadataPath)
     return jsonData
 }
