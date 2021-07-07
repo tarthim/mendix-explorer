@@ -5,12 +5,22 @@
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
     <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
-    <title>Hello World!</title>
+
+    <link rel="stylesheet" href="./../style/style.css">
+
+    <title>Mendix Explorer</title>
   </head>
   <body>
-    <input type="button" id="test-button" value="Test"/>
+    <div id="main-app"></div>
 
     <script src="./../components/jquery-3.6.0.min.js"></script>
     <script src="./../js/renderer.js"></script>
+
+    <script src="./../components/react.development.js"></script>
+    <script src="./../components/react-dom.development.js"></script>
+
+    <!--React components-->
+    <script src="./../js/react/MainApp.js"></script>
+    <script src="./../js/react/MendixSelectorBanner.js"></script>
   </body>
 </html>

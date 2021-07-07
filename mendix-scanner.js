@@ -33,11 +33,12 @@ class MendixScanner {
         this.mendixRoles = []
         this.pagesFound = false
         this.pagesDirectories = []
+        this.widgets
         this.pages = []
     }
-
+    
+    //Init object. Runs callback after init.
     init = async (cb) => {
-        //Init object. Runs callback after init.
         await this.checkValidMendixDirectory()
 
         //If Mendix folder is found, load metadata etc
@@ -88,6 +89,9 @@ class MendixScanner {
                     //Has no roles to manage :-)
                 }
             })
+
+            //Read all widgets from widget folder
+            await _readMendixWidgets(this) //Adds widgets as {name: name, seenOnPages: []}
 
             //Grab all XML directories for pages
             await _getMendixXMLDirectories(this)
@@ -164,6 +168,20 @@ async function _getMendixXMLDirectories(obj) {
     }
 }
 
+async function _readMendixWidgets(obj) {
+    let allWidgets = []
+    let widgetDir = obj.baseDir + '\\widgets\\'
+    let widgetFiles =
+        fs.readdirSync(widgetDir, {withFileTypes: true})
+            .filter(dirent => dirent.isDirectory() === false)
+            .map(dirent => dirent.name)
+    
+    widgetFiles.forEach((widgetName) => {
+        let widgetCleanName = widgetName.split('.mpk')[0]
+        allWidgets.push({'name': widgetCleanName, 'seenOnPages': []})
+    })
+    obj.widgets = allWidgets
+}
 
 async function _readXMLPages(obj) {
     let pagesDirectories = obj.pagesDirectories
@@ -178,14 +196,10 @@ async function _readXMLPages(obj) {
             fs.readdirSync(pagesDirectory, {withFileTypes: true})
                 .filter(dirent => dirent.isDirectory() === false)
                 .map(dirent => dirent.name)
-        
         xmlDirs.push({'dir': directoryName, 'xml': xmlFiles})    
-    
     })
     
     //Loop through all XML files :-)
-
-
     await Promise.all(xmlDirs.map(async (xmlDirObj) => {
         let xmlDir = xmlDirObj.dir
         let xmlFiles = xmlDirObj.xml
@@ -204,28 +218,36 @@ async function _readXMLPages(obj) {
         }
     }))
 
+    console.log('Done reading all Mendix pages')
     
-    console.log('Done reading!')
-    
-
-//Process allMendixObjects
+    //Process allMendixObjects --> Every page in Mendix folder. Use this to fill up Widget analyser (extract function)
     allMendixObjects.forEach((mendixObject) => {
         //console.log(mendixObject)
         let mendixObjectType = mendixObject.obj.attributes['data-mendix-type']
+        //Handle different types of Mendix Objects (widgets, etc)
         if (mendixObjectType) {
             let mendixType = mendixObjectType.substring(0,4)
             if (mendixType == 'mxui') {
-                if (mendixObjectType !== 'mxui.widget.ReactWidgetWrapper') console.log('Mendix object: ' + mendixObjectType)
+                //if (mendixObjectType !== 'mxui.widget.ReactWidgetWrapper') console.log('Mendix object: ' + mendixObjectType)
             }
             else {
-                console.log(`Custom widget on page ${mendixObject.page} with type ${mendixObjectType}`)
+                let customWidgetType = mendixObjectType.split('.widget')[0]
+                customWidgetType = customWidgetType.split('.')[0]
+                addPageToCustomWidget(obj, customWidgetType, mendixObject.page)
+                //console.log(`Custom widget on page ${mendixObject.page} with type ${customWidgetType}`)
             }
         }
     })
-
 }
 
-
+function addPageToCustomWidget(obj, widget, page) {
+    //console.log(`Found ${widget} on ${page}`)
+    let widgets = obj.widgets
+    let selectedWidget = widgets.find((findWidget) => {
+        return findWidget.name.toUpperCase() === widget.toUpperCase()
+    })
+    if (selectedWidget) selectedWidget.seenOnPages.push(page)
+}
 
 async function _processXMLPage(page, pageName, allMendixObjects) {
     return new Promise((resolve, reject) => {
@@ -298,7 +320,7 @@ async function _validateDirectoryFiles(basePath) {
 }
 
 
-//Refactor. This doesn't only check files, but can also be used to check folder paths
+//Refactor. This doesn't only check files, but is also used to check folder paths
 async function _checkFileExist(path) {
     //Checks async if file exists at path
     //console.log('Checking file at ' + path)

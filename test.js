@@ -12,7 +12,7 @@ async function runTest() {
             //console.log(`Global admin user is called ${mendixScanner.mxAdminName}`)
             //console.log('Roles: ')
             //console.log(mendixScanner.mendixRoles)
-            //console.log(mendixScanner)
+            console.log(mendixScanner)
         })
     }
     catch (e) {

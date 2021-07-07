@@ -19,6 +19,8 @@ function createMainWindow () {
     win = new BrowserWindow({
         height: 1000,
         width: 900,
+        minHeight: 700,
+        minWidth: 650,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true
@@ -61,10 +63,17 @@ async function getSelectedDirectory() {
 
                 //Communicate succesful init to client
                 let clientResponse = {}
-                clientResponse.type = 'selectedDirectory'
-                clientResponse.content = mendixScanner.baseDir
+                clientResponse.type = 'newMendixScanner'
                 //Return to client
-                win.webContents.send('fromMain', clientResponse)
+                try {
+                    delete mendixScanner.init
+                    let mendixScannerJson = JSON.stringify(mendixScanner)
+                    clientResponse.content = mendixScannerJson
+                    win.webContents.send('fromMain', clientResponse)
+                }
+                catch (er) {
+                    console.log(er)
+                } 
             })
         }
         catch (e) {
